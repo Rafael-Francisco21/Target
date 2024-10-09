@@ -1,85 +1,95 @@
-/******************************************************************************
-
-Welcome to GDB Online.
-GDB online is an online compiler and debugger tool for C, C++, Python, Java, PHP, Ruby, Perl,
-C#, OCaml, VB, Swift, Pascal, Fortran, Haskell, Objective-C, Assembly, HTML, CSS, JS, SQLite, Prolog.
-Code, Compile, Run and Debug online from anywhere in world.
-
-*******************************************************************************/
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "cJSON.h"
 
-int main()
-{
-    double faturamento[30], media = 0, maior, menor, valor[30];
-    int dia = 1, n = 0, n_d = 0;
-    
-    valor[1] = 22174.1664;
-	valor[2]= 24537.6698;
-	valor[3]= 26139.6134;
-	valor[4]= 0.0;
-	valor[5]=0.0;
-	valor[6]= 26742.6612;
-	valor[7]= 0.0;
-	valor[8]= 42889.2258;
-	valor[9]= 46251.174;
-	valor[10]= 11191.4722;
-	valor[11]= 0.0;
-	valor[12]= 0.0;
-	valor[13]= 3847.4823;
-	valor[14]= 373.7838;
-	valor[15]= 2659.7563;
-	valor[16]= 48924.2448;
-	valor[17]= 18419.2614;
-	valor[18]= 0.0;
-	valor[19]= 0.0;
-	valor[20]= 35240.1826;
-	valor[21]= 43829.1667;
-	valor[22]= 18235.6852;
-	valor[23]= 4355.0662;
-	valor[24]= 13327.1025;
-	valor[25]= 0.0;
-	valor[26]= 0.0;
-	valor[27]= 25681.8318;
-	valor[28]= 1718.1221;
-	valor[29]= 13220.495;
-	valor[30]= 8414.61;
-	
-	while (n <= 30)
-    {
-        if (valor[n] > 0.0){
-            menor = valor[n];
-            maior = valor[n];
-            n = 31;
-        }   
-        n++;
+// Função para ler o arquivo JSON
+char* ler_arquivo_json(const char* nome_arquivo) {
+    FILE* arquivo = fopen(nome_arquivo, "r");
+    if (arquivo == NULL) {
+        printf("Erro ao abrir o arquivo.\n");
+        return NULL;
     }
-    n = 0;
+    fseek(arquivo, 0, SEEK_END);
+    long tamanho_arquivo = ftell(arquivo);
+    fseek(arquivo, 0, SEEK_SET);
     
-    while (dia <= 30)
-    {
-        if (valor[dia] > 0.0){
-            faturamento[n] = valor[dia];
-            if (faturamento[n] > maior){
-                maior = faturamento[n] ;
-            }
-            if (faturamento[n] < menor){
-                menor = faturamento[n] ;
-            }
-            media = media + faturamento[n];
-            n++;
-        }   
-        dia++;
+    char* conteudo = (char*)malloc(tamanho_arquivo + 1);
+    fread(conteudo, 1, tamanho_arquivo, arquivo);
+    conteudo[tamanho_arquivo] = '\0';
+    
+    fclose(arquivo);
+    return conteudo;
+}
+
+int main() {
+    double faturamento[30], media = 0, maior = 0, menor = 0;
+    int n = 0, n_d = 0;
+    
+    // Lendo o arquivo JSON
+    char* dados_json = ler_arquivo_json("dados.json");
+    if (dados_json == NULL) {
+        return 1;
     }
-    media = media / n;
-    n = 0;
-    while (faturamento[n] > 0.0)
-    {
-        if (faturamento[n] > media){
+    
+    // Parsing do arquivo JSON
+    cJSON* json = cJSON_Parse(dados_json);
+    if (json == NULL) {
+        printf("Erro ao fazer o parse do JSON.\n");
+        free(dados_json);
+        return 1;
+    }
+    
+    // Iterar pelos dias no JSON
+    cJSON* dias = json;
+    cJSON* dia_item = NULL;
+
+    cJSON_ArrayForEach(dia_item, dias) {
+        cJSON* valor = cJSON_GetObjectItem(dia_item, "valor");
+        
+        // Ignorar dias com faturamento zero
+        if (valor->valuedouble > 0.0) {
+            faturamento[n] = valor->valuedouble;
+            
+            // Inicializa menor e maior no primeiro valor válido
+            if (n == 0) {
+                menor = maior = faturamento[n];
+            }
+
+            // Verifica se o valor atual é maior ou menor
+            if (faturamento[n] > maior) {
+                maior = faturamento[n];
+            }
+            if (faturamento[n] < menor) {
+                menor = faturamento[n];
+            }
+
+            // Soma para o cálculo da média
+            media += faturamento[n];
+            n++;  // Incrementa o contador de dias com faturamento
+        }
+    }
+
+    // Calculando a média (apenas dias com faturamento)
+    if (n > 0) {
+        media = media / n;
+    }
+
+    // Contando os dias com faturamento acima da média
+    for (int i = 0; i < n; i++) {
+        if (faturamento[i] > media) {
             n_d++;
-        }   
-        n++;
+        }
     }
-    printf("O menor faturamentoi foi %f\nO maior foi %f\nO número de dias que o valor de faturamento foi superior à média mensal é de %i dias", menor, maior, n_d);
 
+    // Exibindo os resultados
+    printf("O menor faturamento foi %.2f\n", menor);
+    printf("O maior faturamento foi %.2f\n", maior);
+    printf("O número de dias com faturamento acima da média mensal foi %d dias\n", n_d);
+
+    // Liberar a memória
+    cJSON_Delete(json);
+    free(dados_json);
+    
     return 0;
 }
